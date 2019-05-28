@@ -11,7 +11,7 @@ from sys import argv
 import os
 
 def get_data_dir(_data_dir):
-    data_dir = _data_dir #'assets/flower_data'
+    data_dir = _data_dir
     train_dir = data_dir + '/train'
     valid_dir = data_dir + '/valid'
     test_dir = data_dir + '/test'

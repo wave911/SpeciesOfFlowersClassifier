@@ -98,7 +98,7 @@ if __name__ == '__main__':
     hidden_units = 25088
     image_path = "flowers/test/2/image_05100.jpg"
     checkpoint_file_path = 'classifier.pth'
-    category_names_file_path = "cat_to_name.json"
+    category_names_file_path = None
     parser = argparse.ArgumentParser(description="Flowers classifier predict module")
 
     parser.add_argument('--gpu', action="store_true", default=False)
@@ -129,10 +129,14 @@ if __name__ == '__main__':
     model = load_model_checkpoint('vgg19', checkpoint_file_path, hidden_units)
     model.to(device)
 
-    cat_to_name = get_cat_to_json(category_names_file_path)
-    probs, classes = predict(image_path, model, top_k)
+    flowers_by_name = None
 
-    flowers_by_name = [cat_to_name[x] for x in classes]
+    probs, classes = predict(image_path, model, top_k)
+    if (category_names_file_path != None):
+        cat_to_name = get_cat_to_json(category_names_file_path)
+        flowers_by_name = [cat_to_name[x] for x in classes]
+
     print(probs)
     print(classes)
-    print(flowers_by_name)
+    if (flowers_by_name != None):
+        print(flowers_by_name)
