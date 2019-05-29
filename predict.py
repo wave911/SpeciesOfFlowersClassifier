@@ -60,35 +60,42 @@ def predict(image_path, model, topk=5):
 
     return top_probs, top_labels
 
-def getClassifier(hidden_units = 25088):
-    classifier = nn.Sequential( nn.Linear(hidden_units, 4096, bias=True),
+def getClassifier(input_units = 25088, hidden_units = 4096):
+    classifier = nn.Sequential( nn.Linear(input_units, hidden_units, bias=True),
                                 nn.ReLU(True),
                                 nn.Dropout(0.5),
-                                nn.Linear(4096, 4096, bias=True),
+                                nn.Linear(hidden_units, hidden_units, bias=True),
                                 nn.ReLU(True),
                                 nn.Dropout(0.5),
-                                nn.Linear(4096, 102, bias=True),
+                                nn.Linear(hidden_units, 102, bias=True),
                                 nn.LogSoftmax(dim=1))
 
     return classifier
 
-def load_model_checkpoint(architecure, checkpoint_file_path, hidden_units = 25088):
+def load_model_checkpoint(checkpoint_file_path):
     checkpoint = torch.load(checkpoint_file_path)
     model = None
-    if (checkpoint['arch'] == architecure):
-        if (architecure == 'vgg19'):
-            model = models.vgg19(pretrained=True)
-        elif (architecure == 'vgg19_bn'):
-            model = models.vgg19_bn(pretrained=True)
-        else:
-            print("Currently vgg19 or vgg19_bn are supported!")
-            return
-        for param in model.parameters():
-            param.requires_grad = False
+    architecture = checkpoint['arch']
 
-        model.classifier = getClassifier(hidden_units)
-        model.class_to_idx = checkpoint['class_to_idx']
-        model.load_state_dict(checkpoint['state_dict'])
+    if (architecture == "vgg19"):
+        model = models.vgg19(pretrained=True)
+    elif (architecture == "densenet121"):
+        model = models.densenet121(pretrained=True)
+    elif (architecture == "alexnet"):
+        model = models.alexnet(pretrained=True)
+    elif (architecture == "googlenet"):
+        model = models.alexnet(pretrained=True)
+    else:
+        print("Only vgg19, densenet121, alexnet or googlenet are supported!")
+        return
+    for param in model.parameters():
+        param.requires_grad = False
+
+    hidden_units = checkpoint["hidden_units"]
+    input_units = checkpoint["input_units"]
+    model.classifier = getClassifier(input_units, hidden_units)
+    model.class_to_idx = checkpoint['class_to_idx']
+    model.load_state_dict(checkpoint['state_dict'])
 
     return model
 
@@ -104,7 +111,6 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', action="store_true", default=False)
     parser.add_argument('--top_k', action="store", dest="top_k", type=int)
     parser.add_argument('--category_names', action="store", dest="category_names")
-    parser.add_argument('--hidden_units', action="store", dest="hidden_units", type=int)
 
     if (len(argv) <= 1):
         print("image_path & checkpoint_file_path are not provided! Exit")
@@ -122,11 +128,9 @@ if __name__ == '__main__':
         useGPU = args.gpu
     if (args.category_names != None):
         category_names_file_path = args.category_names
-    if (args.hidden_units != None):
-        hidden_units = args.hidden_units
 
     device = torch.device("cuda" if torch.cuda.is_available() and useGPU else "cpu")
-    model = load_model_checkpoint('vgg19', checkpoint_file_path, hidden_units)
+    model = load_model_checkpoint(checkpoint_file_path)
     model.to(device)
 
     flowers_by_name = None

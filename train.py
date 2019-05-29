@@ -76,11 +76,15 @@ def get_data(_data_dir, batch_size_ = 128):
 
     return dataloaders_dict, image_datasets
 
-def save_model_checkpoint(model_state_dict, class_to_idx, architecure, checkpoint_file_path, isSave2File = False):
+def save_model_checkpoint(model_state_dict, class_to_idx, architecure,
+                            checkpoint_file_path, input_units, hidden_units,
+                            isSave2File = False):
     checkpoint = {
         'state_dict': model_state_dict, #model.state_dict(),
         'class_to_idx': class_to_idx, #image_datasets['train'].class_to_idx,
-        'arch': architecure # e.g. 'vgg19'
+        'arch': architecure, # e.g. 'vgg19'
+        'input_units': input_units,
+        'hidden_units': hidden_units
     }
     if (isSave2File):
         torch.save(checkpoint, checkpoint_file_path)
@@ -159,30 +163,40 @@ def train_model(model, device, dataloaders, criterion, optimizer, save_dir, arch
     model.load_state_dict(best_model_wts)
     checkpoint_file_path = get_chkpoint_file_path(save_dir)
     checkpoint = save_model_checkpoint(best_model_wts, image_datasets['train'].class_to_idx,
-                          architecture, checkpoint_file_path, True)
+                          architecture, checkpoint_file_path,
+                          model.input_units, model.hidden_units, True)
 
     return model, val_acc_history, checkpoint
 
-def getClassifier(hidden_units = 25088):
-    classifier = nn.Sequential( nn.Linear(hidden_units, 4096, bias=True),
+def getClassifier(input_units = 25088, hidden_units = 4096):
+    classifier = nn.Sequential( nn.Linear(input_units, hidden_units, bias=True),
                                 nn.ReLU(True),
                                 nn.Dropout(0.5),
-                                nn.Linear(4096, 4096, bias=True),
+                                nn.Linear(hidden_units, hidden_units, bias=True),
                                 nn.ReLU(True),
                                 nn.Dropout(0.5),
-                                nn.Linear(4096, 102, bias=True),
+                                nn.Linear(hidden_units, 102, bias=True),
                                 nn.LogSoftmax(dim=1))
 
     return classifier
 
 def get_model(architecture):
     model = None
+    input_units = 0
     if (architecture == "vgg19"):
         model = models.vgg19(pretrained=True)
-    elif (architecture == "vgg19_bn"):
-        model = models.vgg19_bn(pretrained=True)
+        model.input_units = 25088
+    elif (architecture == "densenet121"):
+        model = models.densenet121(pretrained=True)
+        model.input_units = 1024
+    elif (architecture == "alexnet"):
+        model = models.alexnet(pretrained=True)
+        model.input_units = 1024
+    elif (architecture == "googlenet"):
+        model = models.alexnet(pretrained=True)
+        model.input_units = 1024
     else:
-        print("Only vgg19 or vgg19_bn are supported!")
+        print("Only vgg19, densenet121, alexnet or googlenet are supported!")
     return model
 
 def configure_model_training(isUseGPU, architecture, epochs = 50, hidden_units = 25088, learning_rate = 0.00001):
@@ -193,7 +207,8 @@ def configure_model_training(isUseGPU, architecture, epochs = 50, hidden_units =
     for param in model.parameters():
         param.requires_grad = False
 
-    model.classifier = getClassifier(hidden_units)
+    model.hidden_units = hidden_units
+    model.classifier = getClassifier(model.input_units, hidden_units)
 
     #criterion = nn.CrossEntropyLoss()
     criterion = nn.NLLLoss()
@@ -208,7 +223,7 @@ def configure_model_training(isUseGPU, architecture, epochs = 50, hidden_units =
 
 if __name__ == '__main__':
     epochs = 50
-    hidden_units = 25088
+    hidden_units = 4096
     useGPU = True
     checkpoint_dir = "."
     data_dir = "flowers"
@@ -223,6 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_units', action="store", dest="hidden_units", type=int)
     parser.add_argument('--learning_rate', action="store", dest="learning_rate", type=float)
     parser.add_argument('--save_dir', action="store", dest="save_dir")
+    parser.add_argument('--arch', action="store", dest="arch")
 
     if (argv[1] != None):
         data_dir = argv[1]
@@ -238,6 +254,8 @@ if __name__ == '__main__':
         save_dir = args.save_dir
     if (args.learning_rate != None):
         learning_rate = args.learning_rate
+    if (args.arch != None):
+        architecture = args.arch
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
